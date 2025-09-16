@@ -1,15 +1,14 @@
 import pandas as pd
 import psycopg2
+import uuid
+
 
 def insert_data():
-    df = pd.read_csv('../../data/raw/zara.csv', encoding='utf-8',sep=';')
-
-    # Padroniza nomes das colunas
+    df = pd.read_csv('../../data/raw/scanner_data.csv', encoding='utf-8', index_col=0)
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-    # Converte booleans
-    df["promotion"] = df["promotion"].map({"Yes": True, "No": False, "1": True, "0": False})
-    df["seasonal"] = df["seasonal"].map({"Yes": True, "No": False, "1": True, "0": False})
-    df = df.drop(columns=["sku"],axis=1)
+    df['id'] = [str(uuid.uuid4()) for _ in range(len(df))]
+    df['date'] = pd.to_datetime(df['date'], dayfirst=True).dt.strftime('%Y-%m-%d')
+
     try:
         conn = psycopg2.connect(
             database="elasticidade",
@@ -21,23 +20,16 @@ def insert_data():
         cursor = conn.cursor()
 
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS zara (
-                product_id TEXT PRIMARY KEY,
-                product_position TEXT,
-                promotion BOOLEAN,
-                product_category TEXT,
-                seasonal BOOLEAN,
-                sales_volume INT,
-                brand TEXT,
-                url TEXT,
-                name TEXT,
-                description TEXT,
-                price NUMERIC(10,2),
-                currency TEXT,
-                scraped_at TIMESTAMP,
-                terms TEXT,
-                section TEXT
-            );
+            CREATE TABLE IF NOT EXISTS store (
+                id TEXT PRIMARY KEY,
+                date DATE,
+                customer_id TEXT,
+                transaction_id TEXT,
+                sku_category TEXT,
+                sku TEXT,
+                quantity NUMERIC,
+                sales_amount NUMERIC
+            )
         """)
         conn.commit()
 
@@ -45,11 +37,15 @@ def insert_data():
         cols = ','.join(df.columns)
         placeholders = ','.join(['%s'] * len(df.columns))
 
-        insert_query = f"INSERT INTO zara ({cols}) VALUES ({placeholders}) ON CONFLICT (product_id) DO NOTHING"
+        insert_query = f"""
+            INSERT INTO store ({cols}) 
+            VALUES ({placeholders}) 
+            ON CONFLICT (id) DO NOTHING
+        """
         cursor.executemany(insert_query, rows)
         conn.commit()
 
-        print(f"✅ Inseridos {cursor.rowcount} registros na tabela 'zara'.")
+        print(f"✅ Inseridos {cursor.rowcount} registros na tabela 'store'.")
 
     except (Exception, psycopg2.DatabaseError) as error:
         print(f"❌ Erro: {error}")
