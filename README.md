@@ -1,3 +1,5 @@
+![fluxograma simplificado](docs/img.png)
+
 # Elasticidade de Preço | ML Regressor 
 Este projeto auxilia na **tomada de decisão de preços** ao estimar como mudanças de preço afetam a receita.  
 Por exemplo:  
